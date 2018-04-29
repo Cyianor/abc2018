@@ -1,6 +1,6 @@
 """Simple ABC example with a binomial model.
 
-   Comparison of MCMC-ABC, conventional MH MCMC and an anlytical solution.
+   Comparison of MCMC-ABC, conventional MH MCMC and an analytical solution.
 
    Copyright (c) 2018, Felix Held
 """
@@ -62,14 +62,14 @@ def mcmc_abc(data, M=10000, sigma=1e-1, eps=1e-1):
             if np.linalg.norm(D - Dsim, ord=1) <= eps:
                 break
 
-        # # Beta(2, 2) prior
-        # lacc = stats.beta(2, 2).logpdf(logistic(pnew)) + \
-        #     loglogistic(pnew) + np.log(1 - logistic(pnew)) - \
-        #     (stats.beta(2, 2).logpdf(logistic(ps[m])) + \
-        #     loglogistic(ps[m]) + np.log(1 - logistic(ps[m])))
-        # Normal(0, 1.6) prior on unbounded scale
-        lacc = stats.norm(0, 1.6).logpdf(pnew) - \
-            stats.norm(0, 1.6).logpdf(ps[m])
+        # Beta(2, 2) prior
+        lacc = stats.beta(2, 2).logpdf(logistic(pnew)) + \
+            loglogistic(pnew) + np.log(1 - logistic(pnew)) - \
+            (stats.beta(2, 2).logpdf(logistic(ps[m])) + \
+            loglogistic(ps[m]) + np.log(1 - logistic(ps[m])))
+        # # Normal(0, 1.6) prior on unbounded scale
+        # lacc = stats.norm(0, 1.6).logpdf(pnew) - \
+        #     stats.norm(0, 1.6).logpdf(ps[m])
 
         # Metropolis-Hastings acceptance step
         h = min(1, np.exp(lacc))
@@ -105,18 +105,18 @@ def mh(data, M=10000, sigma=1e-1):
     for m in tqdm(range(M)):
         pnew = ps[m] + sigma * np.random.randn()
 
-        # # Beta(2, 2) prior
-        # lacc = np.sum(stats.binom.logpmf(data, 3, logistic(pnew))) + \
-        #     stats.beta(2, 2).logpdf(logistic(pnew)) + \
-        #     loglogistic(pnew) + np.log(1 - logistic(pnew)) - \
-        #     (np.sum(stats.binom.logpmf(data, 3, logistic(ps[m]))) + \
-        #      stats.beta(2, 2).logpdf(logistic(ps[m])) + \
-        #      loglogistic(ps[m]) + np.log(1 - logistic(ps[m])))
-        # Normal(0, 1.6) prior on unbounded scale
+        # Beta(2, 2) prior
         lacc = np.sum(stats.binom.logpmf(data, 3, logistic(pnew))) + \
-            stats.norm(0, 1.6).logpdf(pnew) - \
+            stats.beta(2, 2).logpdf(logistic(pnew)) + \
+            loglogistic(pnew) + np.log(1 - logistic(pnew)) - \
             (np.sum(stats.binom.logpmf(data, 3, logistic(ps[m]))) + \
-             stats.norm(0, 1.6).logpdf(ps[m]))
+             stats.beta(2, 2).logpdf(logistic(ps[m])) + \
+             loglogistic(ps[m]) + np.log(1 - logistic(ps[m])))
+        # # Normal(0, 1.6) prior on unbounded scale
+        # lacc = np.sum(stats.binom.logpmf(data, 3, logistic(pnew))) + \
+        #     stats.norm(0, 1.6).logpdf(pnew) - \
+        #     (np.sum(stats.binom.logpmf(data, 3, logistic(ps[m]))) + \
+        #      stats.norm(0, 1.6).logpdf(ps[m]))
 
         # Metropolis-Hastings acceptance step
         h = min(1, np.exp(lacc))
@@ -132,6 +132,9 @@ def ep_abc(data, passes=3, M=10000, Mbatch=1000, eps=1e-1):
     """Implementation of EP-ABC for the particular problem.
 
     Very naive implementation of EP-ABC for one parameter.
+    Normal(0, 1.6) prior is used on the unbounded scale.
+    This prior has very similar properties as a Beta(2, 2)
+    prior on the bounded scale.
 
     Parameters:
         data - data from the experiment
@@ -190,6 +193,9 @@ def ep_abc_iid(data, passes=3, M=10000, Mbatch=1000, eps=1e-1, ess_min=3000):
     """Implementation of iid optimised EP-ABC for the particular problem.
 
     IID optimised implementation of EP-ABC for one parameter.
+    Normal(0, 1.6) prior is used on the unbounded scale.
+    This prior has very similar properties as a Beta(2, 2)
+    prior on the bounded scale.
 
     Parameters:
         data - data from the experiment
