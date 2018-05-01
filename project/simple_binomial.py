@@ -30,8 +30,8 @@ def loglogistic(theta):
 def mcmc_abc(data, M=10000, sigma=1e-1, eps=1e-1):
     """Implementation of MCMC-ABC for the particular problem.
 
-    Beta(2, 2) prior is assumed for p. Parameters are inferred on
-    an unbounded parameter space.
+    Uniform prior (i.e. Beta(1, 1)) is assumed for p.
+    Parameters are inferred on an unbounded parameter space.
 
     Arguments:
         data - data from experiment
@@ -47,10 +47,10 @@ def mcmc_abc(data, M=10000, sigma=1e-1, eps=1e-1):
     # Summary statistics from data
     D = np.array([np.mean(data), np.std(data)])
 
-    # # Initialize with prior
-    # ps[0] = -np.log(1. / stats.beta(2, 2).rvs() - 1.)
     # Initialize around zero
     ps[0] = 0.1 * np.random.randn()
+
+    total_samples = 0
 
     for m in tqdm(range(M)):
         while True:
@@ -58,18 +58,16 @@ def mcmc_abc(data, M=10000, sigma=1e-1, eps=1e-1):
 
             data_sim = np.random.binomial(3, logistic(pnew), size=len(data))
             Dsim = np.array([np.mean(data_sim), np.std(data_sim)])
+            total_samples += 1
 
             if np.linalg.norm(D - Dsim, ord=1) <= eps:
                 break
 
-        # Beta(2, 2) prior
-        lacc = stats.beta(2, 2).logpdf(logistic(pnew)) + \
+        # Beta(1, 1) prior
+        lacc = stats.beta(1, 1).logpdf(logistic(pnew)) + \
             loglogistic(pnew) + np.log(1 - logistic(pnew)) - \
-            (stats.beta(2, 2).logpdf(logistic(ps[m])) + \
+            (stats.beta(1, 1).logpdf(logistic(ps[m])) + \
             loglogistic(ps[m]) + np.log(1 - logistic(ps[m])))
-        # # Normal(0, 1.6) prior on unbounded scale
-        # lacc = stats.norm(0, 1.6).logpdf(pnew) - \
-        #     stats.norm(0, 1.6).logpdf(ps[m])
 
         # Metropolis-Hastings acceptance step
         h = min(1, np.exp(lacc))
@@ -78,14 +76,14 @@ def mcmc_abc(data, M=10000, sigma=1e-1, eps=1e-1):
         else:
             ps[m + 1] = ps[m]
 
-    return ps
+    return ps, total_samples
 
 
 def mh(data, M=10000, sigma=1e-1):
     """Implementation of Metropolis-Hastings for the particular problem.
 
-    Beta(2, 2) prior is assumed for p. Parameters are inferred on
-    an unbounded parameter space.
+    Uniform prior (i.e. Beta(1, 1)) is assumed for p.
+    Parameters are inferred on an unbounded parameter space.
 
     Arguments:
         data - data from the experiment
@@ -97,26 +95,19 @@ def mh(data, M=10000, sigma=1e-1):
     """
     ps = np.zeros((M + 1,), dtype='float64')
 
-    # # Initialize with prior
-    # ps[0] = -np.log(1. / stats.beta(2, 2).rvs() - 1.)
     # Initialize around zero
     ps[0] = 0.1 * np.random.randn()
 
     for m in tqdm(range(M)):
         pnew = ps[m] + sigma * np.random.randn()
 
-        # Beta(2, 2) prior
+        # Beta(1, 1) prior
         lacc = np.sum(stats.binom.logpmf(data, 3, logistic(pnew))) + \
-            stats.beta(2, 2).logpdf(logistic(pnew)) + \
+            stats.beta(1, 1).logpdf(logistic(pnew)) + \
             loglogistic(pnew) + np.log(1 - logistic(pnew)) - \
             (np.sum(stats.binom.logpmf(data, 3, logistic(ps[m]))) + \
-             stats.beta(2, 2).logpdf(logistic(ps[m])) + \
+             stats.beta(1, 1).logpdf(logistic(ps[m])) + \
              loglogistic(ps[m]) + np.log(1 - logistic(ps[m])))
-        # # Normal(0, 1.6) prior on unbounded scale
-        # lacc = np.sum(stats.binom.logpmf(data, 3, logistic(pnew))) + \
-        #     stats.norm(0, 1.6).logpdf(pnew) - \
-        #     (np.sum(stats.binom.logpmf(data, 3, logistic(ps[m]))) + \
-        #      stats.norm(0, 1.6).logpdf(ps[m]))
 
         # Metropolis-Hastings acceptance step
         h = min(1, np.exp(lacc))
@@ -132,9 +123,8 @@ def ep_abc(data, passes=3, M=10000, Mbatch=1000, eps=1e-1):
     """Implementation of EP-ABC for the particular problem.
 
     Very naive implementation of EP-ABC for one parameter.
-    Normal(0, 1.6) prior is used on the unbounded scale.
-    This prior has very similar properties as a Beta(2, 2)
-    prior on the bounded scale.
+    Normal(0, 2.5) prior is used on the unbounded scale, making
+    the prior only weakly informative.
 
     Parameters:
         data - data from the experiment
@@ -150,19 +140,27 @@ def ep_abc(data, passes=3, M=10000, Mbatch=1000, eps=1e-1):
     # In the beginning assume r = 0 and q = 0 for all but prior distribution
     # Initial approximation is then q = f0, i.e. the prior
 
+    total_samples = 0
+
     # Create arrays for precisions and precision means
     r = np.zeros((N + 1,), dtype='float64')
     q = np.zeros((N + 1,), dtype='float64')
 
-    # Prior Normal(0, 1.6)
+    # Prior Normal(0, 2.5)
     r[0] = 0.           # Precision mean
-    q[0] = 1. / 1.6**2  # Precision
+    q[0] = 1. / 2.5**2  # Precision
 
     for k in tqdm(range(passes)):
         for i in tqdm(range(1, N + 1)):
             # Cavity distribution with respect to i-th data point
             r_cavity = np.sum(r[:i]) + np.sum(r[(i + 1):])
             q_cavity = np.sum(q[:i]) + np.sum(q[(i + 1):])
+
+            if q_cavity <= 0.:
+                # Only continue if positive precision
+                print('Negative precision: Skipping site %d in pass %d' %
+                    (i, k))
+                continue
 
             m_acc = 0
             theta_acc = np.array([], dtype='float64')
@@ -177,6 +175,8 @@ def ep_abc(data, passes=3, M=10000, Mbatch=1000, eps=1e-1):
 
                 theta_acc = np.concatenate((theta_acc, theta[acc_vec]))
 
+                total_samples += 1
+
                 if m_acc >= M:
                     break
 
@@ -186,16 +186,15 @@ def ep_abc(data, passes=3, M=10000, Mbatch=1000, eps=1e-1):
             r[i] = mu_tilted / var_tilted - r_cavity
             q[i] = 1. / var_tilted - q_cavity
 
-    return np.sum(r) / np.sum(q), np.sqrt(1. / np.sum(q))
+    return np.sum(r) / np.sum(q), np.sqrt(1. / np.sum(q)), total_samples
 
 
 def ep_abc_iid(data, passes=3, M=10000, Mbatch=1000, eps=1e-1, ess_min=3000):
     """Implementation of iid optimised EP-ABC for the particular problem.
 
     IID optimised implementation of EP-ABC for one parameter.
-    Normal(0, 1.6) prior is used on the unbounded scale.
-    This prior has very similar properties as a Beta(2, 2)
-    prior on the bounded scale.
+    Normal(0, 2.5) prior is used on the unbounded scale, making
+    the prior only weakly informative.
 
     Parameters:
         data - data from the experiment
@@ -211,15 +210,17 @@ def ep_abc_iid(data, passes=3, M=10000, Mbatch=1000, eps=1e-1, ess_min=3000):
     # In the beginning assume r = 0 and q = 0 for all but prior distribution
     # Initial approximation is then q = f0, i.e. the prior
 
+    total_samples = 0
+
     # Create arrays for precisions and precision means
     r = np.zeros((N + 1,), dtype='float64')
     q = np.zeros((N + 1,), dtype='float64')
 
-    # Prior Normal(0, 1.6)
+    # Prior Normal(0, 2.5)
     r[0] = 0.           # Precision mean
-    q[0] = 1. / 1.6**2  # Precision
+    q[0] = 1. / 2.5**2  # Precision
 
-    def sample(mu_gen, sigma_gen, i):
+    def sample(mu_gen, sigma_gen, i, total_samples):
         theta = np.array([], dtype='float64')
         sim_data = np.array([], dtype='int')
         acc_vec = np.array([], dtype='int')
@@ -235,10 +236,12 @@ def ep_abc_iid(data, passes=3, M=10000, Mbatch=1000, eps=1e-1, ess_min=3000):
             sim_data = np.concatenate((sim_data, sim_data_tmp))
             acc_vec = np.concatenate((acc_vec, acc_vec_tmp))
 
+            total_samples += Mbatch
+
             if m_acc >= M:
                 break
 
-        return theta, sim_data, acc_vec.astype('float64')
+        return theta, sim_data, acc_vec.astype('float64'), total_samples
 
     ess = np.zeros((passes, N), dtype='float64')
 
@@ -248,13 +251,20 @@ def ep_abc_iid(data, passes=3, M=10000, Mbatch=1000, eps=1e-1, ess_min=3000):
             r_cavity = np.sum(r[:i]) + np.sum(r[(i + 1):])
             q_cavity = np.sum(q[:i]) + np.sum(q[(i + 1):])
 
+            if q_cavity <= 0.:
+                # Only continue if positive precision
+                print('Negative precision: Skipping site %d in pass %d' %
+                    (i, k))
+                continue
+
             if k == 0 and i == 1:
                 # Set new generative mu and sigma
                 mu_gen = r_cavity / q_cavity
                 sigma_gen = np.sqrt(1. / q_cavity)
 
                 # New samples
-                theta, sim_data, ws = sample(mu_gen, sigma_gen, i - 1)
+                theta, sim_data, ws, total_samples = sample(
+                    mu_gen, sigma_gen, i - 1, total_samples)
             else:
                 # Calculate importance sampling weights
                 ws = np.exp(
@@ -272,7 +282,8 @@ def ep_abc_iid(data, passes=3, M=10000, Mbatch=1000, eps=1e-1, ess_min=3000):
                 sigma_gen = np.sqrt(1. / q_cavity)
 
                 # New samples
-                theta, sim_data, ws = sample(mu_gen, sigma_gen, i - 1)
+                theta, sim_data, ws, total_samples = sample(
+                    mu_gen, sigma_gen, i - 1, total_samples)
 
             z_norm = np.sum(ws)
             mu_tilted = np.sum(ws * theta) / z_norm
@@ -281,49 +292,68 @@ def ep_abc_iid(data, passes=3, M=10000, Mbatch=1000, eps=1e-1, ess_min=3000):
             r[i] = mu_tilted / var_tilted - r_cavity
             q[i] = 1. / var_tilted - q_cavity
 
-    return np.sum(r) / np.sum(q), np.sqrt(1. / np.sum(q)), ess
+    return np.sum(r) / np.sum(q), np.sqrt(1. / np.sum(q)), ess, total_samples
 
 
 if __name__ == '__main__':
     sns.set_style()
 
     # Simulate data
-    data = np.random.binomial(3, 0.3, size=100)
+    data = np.random.binomial(3, 0.3, size=500)
     print('Data', data)
     print(np.mean(data), np.std(data))
 
-    mu, sigma, ess = ep_abc_iid(data, M=100000, Mbatch=10000,
-                                ess_min=60000, eps=1e-1)
+    mu, sigma, ess, total_samples = ep_abc_iid(
+        data, M=int(1e6), Mbatch=10000,
+        ess_min=int(2e-2 * 1e6), eps=1e-1, passes=4)
     print('\nEP-ABC IID-opt', mu, sigma)
+    print('\nEP-ABC total samples', total_samples)
 
     # mu, sigma = ep_abc(data, M=100000, Mbatch=10000, eps=1e-1)
     # print('\nEP-ABC', mu, sigma)
 
     # Infere parameters
-    ps_abc = mcmc_abc(data, M=50000, eps=.15)[5000:]
-    ps_mh = mh(data, M=50000)[5000:]
+    ps_abc, total_samples = mcmc_abc(data, M=10000,
+                                     sigma=5e-1, eps=1e-2)
+    print('\nMCMC-ABC total samples', total_samples)
+    ps_mh = mh(data, M=10000)
+
+    # Kernel density estimates for the samples
+    kde_abc = stats.gaussian_kde(logistic(ps_abc[2000:]), 'silverman')
+    kde_mh = stats.gaussian_kde(logistic(ps_mh[2000:]), 'silverman')
 
     # Exact solution with conjugate prior
     xs = np.arange(0.01, 1., 1e-3)
-    ys = stats.beta(2 + np.sum(data), 2 + np.sum(3 - data)).pdf(xs)
+    ys = stats.beta(1 + np.sum(data), 1 + np.sum(3 - data)).pdf(xs)
 
     # Solution from expectation propagation
     ys_ep = stats.norm(mu, sigma).pdf(logit(xs)) / (xs * (1 - xs))
 
-    # Kernel density estimates for the samples
-    kde_abc = stats.gaussian_kde(logistic(ps_abc), 'silverman')
-    kde_mh = stats.gaussian_kde(logistic(ps_mh), 'silverman')
-
     # Plot solutions
-    plt.plot(xs, ys)
     plt.plot(xs, kde_abc(xs))
-    plt.plot(xs, kde_mh(xs))
-    plt.plot(xs, ys_ep)
-    # plt.hist(logistic(ps_abc), bins=30, density=True, alpha=0.4, color='b');
-    # plt.hist(logistic(ps_mh), bins=30, density=True, alpha=0.4, color='r');
-    plt.legend(['Analytic', 'MCMC-ABC', 'MH', 'EP-ABC'])
+    plt.plot(xs, kde_mh(xs), '--')
+    plt.plot(xs, ys_ep, '-.')
+    plt.plot(xs, ys, ':')
+    plt.legend(['MCMC-ABC', 'MH', 'EP-ABC', 'Analytic'])
 
     plt.savefig('p_densities.png')
+
+    # Zoomed in solution
+    plt.clf()
+    # Exact solution with conjugate prior
+    xs = np.arange(0.2, 0.4, 1e-3)
+    ys = stats.beta(1 + np.sum(data), 1 + np.sum(3 - data)).pdf(xs)
+
+    # Solution from expectation propagation
+    ys_ep = stats.norm(mu, sigma).pdf(logit(xs)) / (xs * (1 - xs))
+
+    plt.plot(xs, kde_abc(xs))
+    plt.plot(xs, kde_mh(xs), '--')
+    plt.plot(xs, ys_ep, '-.')
+    plt.plot(xs, ys, '--')
+    plt.legend(['MCMC-ABC', 'MH', 'EP-ABC', 'Analytic'])
+
+    plt.savefig('p_densities_zoomed.png')
 
     # Save traces
     plt.clf()
