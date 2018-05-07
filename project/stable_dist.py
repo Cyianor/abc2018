@@ -65,7 +65,7 @@ def stable_rvs(alpha, beta, mu=0, c=1, size=1):
     return Y
 
 
-def stable_rvs_unbnd_vec(theta, loc, scale):
+def stable_rvs_unbnd_vec(theta):
     """Support parameter vector for stable random variates.
 
     Algorithm by Chambers, Mallows and Stuck (from Wikipedia,
@@ -82,10 +82,10 @@ def stable_rvs_unbnd_vec(theta, loc, scale):
     """
     alpha = 2. * stats.norm.cdf(theta[:, 0])
     beta = 2. * stats.norm.cdf(theta[:, 1]) - 1.
-    # mu = theta[:, 2]
-    # c = np.exp(theta[:, 3])
-    mu = loc
-    c = scale
+    mu = theta[:, 2]
+    c = np.exp(theta[:, 3])
+    # mu = loc
+    # c = scale
     N = theta.shape[0]
 
     U = (np.random.rand(N) - 0.5) * np.pi
@@ -106,9 +106,9 @@ def cholesky_inv(A):
     Let U be the Cholesky decomposition of a `n x n` matrix A. Then
 
     ::
-        Ainv = U \ (U' \ identity(n))
+        Ainv = U \\ (U' \\ identity(n))
 
-    where `\` indicates the solution of a linear equation system.
+    where `\\` indicates the solution of a linear equation system.
 
     :Arguments:
         A : NumPy array
@@ -122,7 +122,7 @@ def cholesky_inv(A):
     return np.linalg.inv(A)
 
 
-def ep_abc_iid(data, loc, scale, M=10000, Mbatch=1000, ess_min=3000,
+def ep_abc_iid(data, M=10000, Mbatch=1000, ess_min=3000,
                passes=3, eps=1, a=1.):
     """Implementation of iid optimised EP-ABC for the particular problem.
 
@@ -149,7 +149,10 @@ def ep_abc_iid(data, loc, scale, M=10000, Mbatch=1000, ess_min=3000,
         eps : float
             ABC epsilon
         a : float
-            Determines how quickly the global approximation is updated
+            Determines how quickly the global approximation is updated.
+            Parameter is chosen to be between (0, 1). 1.0 means to apply no
+            damping at all and close to zero means to update the global
+            approximation only very slowly (default: 1.0)
 
     :Returns:
         (NumPy array, NumPy array, int) : Normal approximation mu, sigma
@@ -166,12 +169,12 @@ def ep_abc_iid(data, loc, scale, M=10000, Mbatch=1000, ess_min=3000,
     total_samples = 0
 
     # Create arrays for precision matrices and precision means
-    r = np.zeros((N + 1, 2), dtype='float64')
-    q = np.zeros((N + 1, 2, 2), dtype='float64')
+    r = np.zeros((N + 1, 4), dtype='float64')
+    q = np.zeros((N + 1, 4, 4), dtype='float64')
 
     # Prior
-    r[0, :] = np.zeros((2,), dtype='float')     # Precision mean
-    q[0, :, :] = cholesky_inv(np.diag([1, 1]))  # Precision
+    r[0, :] = np.zeros((4,), dtype='float')             # Precision mean
+    q[0, :, :] = cholesky_inv(np.diag([1, 1, 10, 10]))  # Precision
 
     # Global approximations
     R = np.sum(r, axis=0)
@@ -207,7 +210,7 @@ def ep_abc_iid(data, loc, scale, M=10000, Mbatch=1000, ess_min=3000,
             z = np.random.randn(Mbatch, m)
             theta_tmp = z.dot(U) + mu_gen
 
-            sim_data_tmp = stable_rvs_unbnd_vec(theta_tmp, loc, scale)
+            sim_data_tmp = stable_rvs_unbnd_vec(theta_tmp)
             total_samples += Mbatch
 
             acc = (np.abs(sim_data_tmp - data[i]) < eps)
@@ -297,34 +300,34 @@ def ep_abc_iid(data, loc, scale, M=10000, Mbatch=1000, ess_min=3000,
 
 
 if __name__ == '__main__':
-    # # Import return data
-    # zt = pd.read_csv('aud_in_sterling.csv').zt.values
-    # # Calculate scaled log-return rates
-    # yt = 100. * np.log(zt[1:] / zt[:-1])
+    # Import return data
+    zt = pd.read_csv('euro_in_sterling.csv').zt.values
+    # Calculate scaled log-return rates
+    yt = 100. * np.log(zt[1:] / zt[:-1])
 
     # Seed the RNG
     np.random.seed(20180503)
     # Turn of some annoying warnings
     np.seterr(over='ignore', divide='ignore', invalid='ignore')
 
-    # Generate some data
-    yt = stable_rvs(1.61, 0.2, -0.05, 0.1, size=100)
+    # # Generate some data
+    # yt = stable_rvs(1.61, 0.2, -0.05, 0.1, size=1500)
 
-    # Visualise data
-    fig = plt.figure(figsize=(12, 5))
-    ax = fig.add_subplot(111)
+    # # Visualise data
+    # fig = plt.figure(figsize=(12, 5))
+    # ax = fig.add_subplot(111)
 
-    ax.plot(yt, '-o', markersize=2)
-    ax.set_ylabel('Scaled log-return')
-    fig.tight_layout()
-    fig.savefig('scaled_log_return.png')
+    # ax.plot(yt, '-o', markersize=2)
+    # ax.set_ylabel('Scaled log-return')
+    # fig.tight_layout()
+    # fig.savefig('scaled_log_return.png')
 
     mu, sigma, total_samples = ep_abc_iid(
-        yt, loc=-0.05, scale=0.1, M=int(8e6), Mbatch=int(1e6),
-        ess_min=int(2e4), eps=.2, passes=1)
+        yt, M=int(8e6), Mbatch=int(5e6),
+        ess_min=int(2e4), eps=.5, passes=1)
 
     # Save data from this run
-    np.savez('stable_dist', yt, mu, sigma, total_samples)
+    np.savez('stable_dist_eur_in_sterling', yt, mu, sigma, total_samples)
 
     print(mu, sigma, total_samples)
 
@@ -360,4 +363,4 @@ if __name__ == '__main__':
     axs[1, 1].set_title('$c$')
 
     fig.tight_layout()
-    fig.savefig('stable_dist_densities.png')
+    fig.savefig('stable_dist_densities_euro_in_sterling.png')
