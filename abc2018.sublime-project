@@ -1,8 +1,26 @@
 {
+	"build_systems":
+	[
+		{
+			"file_regex": "^[ ]*File \"(...*?)\", line ([0-9]*)",
+			"name": "Anaconda Python Builder",
+			"selector": "source.python",
+			"shell_cmd": "\"python\" -u \"$file\""
+		},
+		{
+			"name": "report",
+			"working_dir": "$project_path/project",
+			"cmd": [
+				"powershell", "-File", "./make_report.ps1"
+			]
+		}
+	],
 	"folders":
 	[
 		{
-			"path": "."
+			"path": ".",
+			"folder_exclude_patterns": ["output"],
+			"file_exclude_patterns": ["*.pdf", "*.h5", "*.synctex.gz", "*.nb"]
 		}
 	]
 }

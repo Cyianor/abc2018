@@ -1,4 +1,7 @@
 output/
 .ipynb_checkpoints/
+__pycache__/
 
 *.sublime-workspace
+*.synctex.gz
+*.pdf
