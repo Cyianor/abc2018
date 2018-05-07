@@ -6,6 +6,7 @@ import numpy.random as rnd
 import numpy as np
 
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 def reactions(mu, states):
     """Executes Michaelis-Menten chemical reactions.
@@ -45,9 +46,9 @@ def reactions(mu, states):
 
 if __name__ == '__main__':
     # Rates
-    c = np.array([.1, .1, .4])
+    c = np.array([5e-3, 1e-2, .8])
     # Initial counts
-    states = np.array([10000, 1000, 0, 0])
+    states = np.array([100, 200, 0, 0])
     saved_states = np.zeros((1, 4), dtype='int')
     saved_states[0, :] = states
     # Time
@@ -58,7 +59,7 @@ if __name__ == '__main__':
     #         (t, states[0], states[1], states[2], states[3]))
 
     # Endtime
-    tend = 20
+    tend = 10
 
     while ts[-1] < tend and (states[1] > 0 or states[2] > 0):
         # Calculate rate function values
@@ -89,6 +90,9 @@ if __name__ == '__main__':
 
     ts = np.array(ts)
 
+    mpl.rcParams['mathtext.fontset'] = 'stix'
+    mpl.rcParams['font.serif'] = 'STIX Two Text'
+    mpl.rcParams['font.family'] = 'serif'
     plt.plot(ts, saved_states, 'o', markersize=1)
     plt.legend(['E', 'S', 'ES', 'P'])
     plt.savefig('traj.png')
