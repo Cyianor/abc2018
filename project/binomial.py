@@ -6,13 +6,7 @@
 """
 import numpy as np
 import scipy.stats as stats
-
 from tqdm import tqdm
-
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-import seaborn as sns
-
 import h5py
 
 
@@ -349,8 +343,6 @@ def ep_abc_iid(data, n, passes=3, M=10000, Mbatch=1000,
 
 
 if __name__ == '__main__':
-    sns.set_style()
-
     # Simulate data
     n = 10
     p = 0.3
@@ -359,7 +351,7 @@ if __name__ == '__main__':
     print(np.mean(data), np.std(data))
 
     mu, sigma, ep_total_samples = ep_abc_iid(
-        data, n=10, M=int(1e4), Mbatch=int(1e4),
+        data, n=10, M=int(8e5), Mbatch=int(1e5),
         ess_min=int(2e4), eps=.1, passes=1)
     print('\nEP-ABC IID-opt', mu, sigma)
     print('\nEP-ABC total samples', ep_total_samples)
@@ -382,6 +374,7 @@ if __name__ == '__main__':
 
         grp = f.create_group('run%d' % last)
 
+        grp.attrs['n'] = n
         grp.attrs['p'] = p
         grp.attrs['ep-ttl-smpls'] = ep_total_samples
         grp.attrs['mcmc-ttl-smpls'] = mcmc_total_samples
@@ -401,72 +394,3 @@ if __name__ == '__main__':
         mh_ds = grp.create_dataset(
             'mh', ps_mh.shape, dtype='float64')
         mh_ds[...] = ps_mh
-
-    # Kernel density estimates for the samples
-    kde_abc = stats.gaussian_kde(logistic(ps_abc[2000:]), 'silverman')
-    kde_mh = stats.gaussian_kde(logistic(ps_mh[2000:]), 'silverman')
-
-    # Exact solution with conjugate prior
-    xs = np.arange(0.01, 1., 1e-3)
-    ys = stats.beta(1 + np.sum(data), 1 + np.sum(n - data)).pdf(xs)
-
-    # Solution from expectation propagation
-    ys_ep = stats.norm(mu, sigma).pdf(logit(xs)) / (xs * (1 - xs))
-
-    mpl.rcParams['mathtext.fontset'] = 'stix'
-    mpl.rcParams['font.serif'] = 'STIX Two Text'
-    mpl.rcParams['font.family'] = 'serif'
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    # Plot solutions
-    ax.plot(xs, kde_abc(xs))
-    ax.plot(xs, kde_mh(xs), '--')
-    ax.plot(xs, ys_ep, '-.')
-    ax.plot(xs, ys, ':')
-
-    ax.legend(['MCMC-ABC', 'MH', 'EP-ABC', 'Analytic'])
-    ax.set_xlabel('Probability $p$')
-    ax.set_ylabel('Density')
-
-    fig.tight_layout()
-    fig.savefig('p_densities.png')
-
-    # Zoomed in solution
-    fig.clf()
-    ax = fig.add_subplot(111)
-    # Exact solution with conjugate prior
-    xs = np.arange(0.25, 0.35, 1e-3)
-    ys = stats.beta(1 + np.sum(data), 1 + np.sum(n - data)).pdf(xs)
-
-    # Solution from expectation propagation
-    ys_ep = stats.norm(mu, sigma).pdf(logit(xs)) / (xs * (1 - xs))
-
-    ax.plot(xs, kde_abc(xs))
-    ax.plot(xs, kde_mh(xs), '--')
-    ax.plot(xs, ys_ep, '-.')
-    ax.plot(xs, ys, '--')
-
-    ax.legend(['MCMC-ABC', 'MH', 'EP-ABC', 'Analytic'])
-    ax.set_xlabel('Probability $p$')
-    ax.set_ylabel('Density')
-
-    fig.tight_layout()
-    fig.savefig('p_densities_zoomed.png')
-
-    # Save traces
-    fig.clf()
-    ax = fig.add_subplot(111)
-    ax.plot(ps_abc)
-    ax.set_xlabel('Iteration')
-    ax.set_ylabel('Probability $p$')
-    fig.tight_layout()
-    fig.savefig('abc_trace.png')
-
-    fig.clf()
-    ax = fig.add_subplot(111)
-    ax.plot(ps_mh)
-    ax.set_xlabel('Iteration')
-    ax.set_ylabel('Probability $p$')
-    fig.tight_layout()
-    fig.savefig('mh_trace.png')
