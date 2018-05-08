@@ -13,13 +13,20 @@
 			"cmd": [
 				"powershell", "-File", "./make_report.ps1"
 			]
+		},
+		{
+			"name": "ext_pres",
+			"working_dir": "$project_path/presentation",
+			"cmd": [
+				"powershell", "-File", "./make_pres_ext.ps1"
+			]
 		}
 	],
 	"folders":
 	[
 		{
 			"path": ".",
-			"folder_exclude_patterns": ["output"],
+			"folder_exclude_patterns": [],
 			"file_exclude_patterns": ["*.pdf", "*.h5", "*.synctex.gz", "*.nb"]
 		}
 	]
