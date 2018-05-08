@@ -5,15 +5,14 @@
 import numpy as np
 import scipy.stats as stats
 import pandas as pd
-
 from tqdm import tqdm
-
-import matplotlib.pyplot as plt
-import matplotlib as mpl
 
 
 def stable_rvs(alpha, beta, mu=0, c=1, size=1):
     """Simulates a stable random variable.
+
+    Algorithm by Chambers, Mallows and Stuck (from Wikipedia,
+    https://en.wikipedia.org/wiki/Stable_distribution#Simulation_of_stable_variables)
 
     :Arguments:
         alpha : float
@@ -119,6 +118,8 @@ def cholesky_inv(A):
     """
     # U = np.linalg.cholesky(A)
     # return np.linalg.solve(U, np.linalg.solve(U.T, np.identity(A.shape[0])))
+
+    # Cholesky inverse was less table than NumPy's algorithm
     return np.linalg.inv(A)
 
 
@@ -310,17 +311,17 @@ if __name__ == '__main__':
     # Turn of some annoying warnings
     np.seterr(over='ignore', divide='ignore', invalid='ignore')
 
-    # # Generate some data
-    yt = stable_rvs(1.61, -0.2, 0., 0.41, size=500)
+    # # # Generate some data
+    # yt = stable_rvs(1.61, -0.2, 0., 0.41, size=500)
 
-    # Visualise data
-    fig = plt.figure(figsize=(12, 5))
-    ax = fig.add_subplot(111)
+    # # Visualise data
+    # fig = plt.figure(figsize=(12, 5))
+    # ax = fig.add_subplot(111)
 
-    ax.plot(yt, '-o', markersize=2)
-    ax.set_ylabel('Scaled log-return')
-    fig.tight_layout()
-    fig.savefig('scaled_log_return_sim2.png')
+    # ax.plot(yt, '-o', markersize=2)
+    # ax.set_ylabel('Scaled log-return')
+    # fig.tight_layout()
+    # fig.savefig('scaled_log_return_sim2.png')
 
     mu, sigma, total_samples = ep_abc_iid(
         yt, M=int(8e6), Mbatch=int(5e6),
@@ -330,37 +331,3 @@ if __name__ == '__main__':
     np.savez('stable_dist_sim2', yt, mu, sigma, total_samples)
 
     print(mu, sigma, total_samples)
-
-    mpl.rcParams['mathtext.fontset'] = 'stix'
-    mpl.rcParams['font.serif'] = 'STIX Two Text'
-    mpl.rcParams['font.family'] = 'serif'
-
-    fig, axs = plt.subplots(2, 2, figsize=(12, 8))
-
-    # alpha
-    xs = np.arange(0, 2.1, 1e-3)
-    axs[0, 0].plot(xs, stats.norm.pdf(
-        stats.norm.ppf(xs / 2), mu[0], np.sqrt(sigma[0, 0])) /
-        (stats.norm.pdf(stats.norm.ppf(xs / 2)) * 2))
-    axs[0, 0].set_title('$\\alpha$')
-
-    # beta
-    xs = np.arange(-1, 1.1, 1e-3)
-    axs[0, 1].plot(xs, stats.norm.pdf(
-        stats.norm.ppf((xs + 1) / 2), mu[1], np.sqrt(sigma[1, 1])) /
-        (stats.norm.pdf(stats.norm.ppf((xs + 1) / 2)) * 2))
-    axs[0, 1].set_title('$\\beta$')
-
-    # mu
-    xs = np.arange(-1, 1.1, 1e-3)
-    axs[1, 0].plot(xs, stats.norm.pdf(xs, mu[2], np.sqrt(sigma[2, 2])))
-    axs[1, 0].set_title('$\\mu$')
-
-    # c
-    xs = np.arange(0.01, 0.5, 1e-3)
-    axs[1, 1].plot(xs, stats.norm.pdf(
-        np.log(xs), mu[3], np.sqrt(sigma[3, 3])) / xs)
-    axs[1, 1].set_title('$c$')
-
-    fig.tight_layout()
-    fig.savefig('stable_dist_densities_sim2.png')
