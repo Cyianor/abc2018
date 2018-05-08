@@ -311,23 +311,23 @@ if __name__ == '__main__':
     np.seterr(over='ignore', divide='ignore', invalid='ignore')
 
     # # Generate some data
-    # yt = stable_rvs(1.61, 0.2, -0.05, 0.1, size=1500)
+    yt = stable_rvs(1.61, -0.2, 0., 0.41, size=500)
 
-    # # Visualise data
-    # fig = plt.figure(figsize=(12, 5))
-    # ax = fig.add_subplot(111)
+    # Visualise data
+    fig = plt.figure(figsize=(12, 5))
+    ax = fig.add_subplot(111)
 
-    # ax.plot(yt, '-o', markersize=2)
-    # ax.set_ylabel('Scaled log-return')
-    # fig.tight_layout()
-    # fig.savefig('scaled_log_return.png')
+    ax.plot(yt, '-o', markersize=2)
+    ax.set_ylabel('Scaled log-return')
+    fig.tight_layout()
+    fig.savefig('scaled_log_return_sim2.png')
 
     mu, sigma, total_samples = ep_abc_iid(
         yt, M=int(8e6), Mbatch=int(5e6),
-        ess_min=int(2e4), eps=.5, passes=1)
+        ess_min=int(2e4), eps=1., passes=1)
 
     # Save data from this run
-    np.savez('stable_dist_eur_in_sterling', yt, mu, sigma, total_samples)
+    np.savez('stable_dist_sim2', yt, mu, sigma, total_samples)
 
     print(mu, sigma, total_samples)
 
@@ -363,4 +363,4 @@ if __name__ == '__main__':
     axs[1, 1].set_title('$c$')
 
     fig.tight_layout()
-    fig.savefig('stable_dist_densities_euro_in_sterling.png')
+    fig.savefig('stable_dist_densities_sim2.png')
