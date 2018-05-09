@@ -241,7 +241,7 @@ led to 1514 data points $y_t$ that are visualised in @fig:stable-data.
 It was attempted to fit a four-parameter stable distribution [@Nolan2018] to
 the scaled log-return rates $y_t$. Stable distributions do not have a
 density in closed-form. However, they can be cheaply simulated with the
-algorithm described in [@Chambers1976].
+algorithm described in @Chambers1976.
 
 The four parameters of a stable distribution are
 

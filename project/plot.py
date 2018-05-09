@@ -9,7 +9,7 @@ import pandas as pd
 import h5py
 import scipy.stats as stats
 
-from stable_dist import stable_rvs
+from stable import stable_rvs
 from binomial import logistic, logit
 
 
